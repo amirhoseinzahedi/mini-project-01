@@ -47,3 +47,35 @@ Future experiments should therefore consider metrics such as:
 - F1-score
 - ROC-AUC
 - Precision-Recall AUC
+
+
+
+## Phase 2 — Data Preprocessing
+
+### Data Quality
+
+- Dataset shape: 284,807 rows × 31 columns
+- All features are numerical.
+- Target: `Class`
+
+### Missing Values
+
+No missing values were detected.
+
+### Duplicate Analysis
+
+Exact duplicate rows were checked using `DataFrame.duplicated()`.
+
+### Train/Test Split
+
+The dataset was split into:
+
+- 80% training
+- 20% testing
+
+Parameters:
+
+```python
+test_size=0.2
+stratify=y
+random_state=42

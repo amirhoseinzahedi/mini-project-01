@@ -1,62 +1,98 @@
 import pandas as pd
+import joblib
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 
 DATA_PATH = "mini_project_01/data/creditcard.csv"
+SCALER_PATH = "mini_project_01/models/scaler.pkl"
 
 
 def load_data(path):
     return pd.read_csv(path)
 
 
-def analyze_dataset(df):
-    num_samples = df.shape[0]
-    num_features = df.shape[1] - 1
+def check_data_quality(df):
+    print("===== Data Quality =====")
 
-    print("===== Dataset Structure =====")
-    print(f"Number of Samples: {num_samples}")
-    print(f"Number of Features: {num_features}")
-    print(f"Number of Columns: {df.shape[1]}")
+    print("\nShape:")
+    print(df.shape)
 
-    print("\n===== Columns =====")
-    print(df.columns.tolist())
-
-    print("\n===== Data Types =====")
+    print("\nData Types:")
     print(df.dtypes)
 
+    print("\nMissing Values:")
+    print(df.isnull().sum())
 
-def descriptive_statistics(df):
-    print("\n===== Descriptive Statistics =====")
-    print(df.describe().T)  # .T to see features as RowName and Statistics as ColumnName
+    print("\nTotal Missing Values:")
+    print(df.isnull().sum().sum())
 
-
-def check_missing_values(df):
-    missing_values = df.isnull().sum()
-
-    print("\n===== Missing Values =====")
-    print(missing_values)
-
-    print("\nTotal Missing Values:", missing_values.sum())
+    print("\nDuplicate Rows:")
+    print(df.duplicated().sum())
 
 
-def analyze_class_distribution(df):
-    class_counts = df["Class"].value_counts()
-    class_percentages = df["Class"].value_counts(normalize=True) * 100
+def analyze_class_distribution(y):
+    print("\n===== Class Distribution =====")
+
+    class_counts = y.value_counts()
+    class_percentages = y.value_counts(normalize=True) * 100
 
     distribution = pd.DataFrame(
         {"Count": class_counts, "Percentage": class_percentages}
     )
 
-    print("\n===== Class Distribution =====")
     print(distribution)
+
+
+def preprocess_data(df):
+    # Separate features and target
+    X = df.drop("Class", axis=1)
+    y = df["Class"]
+
+    # Stratified train/test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=42
+    )
+
+    print("\n===== Train/Test Split =====")
+
+    print("X_train:", X_train.shape)
+    print("X_test :", X_test.shape)
+    print("y_train:", y_train.shape)
+    print("y_test :", y_test.shape)
+
+    print("\nTraining Class Distribution:")
+    print(y_train.value_counts(normalize=True))
+
+    print("\nTesting Class Distribution:")
+    print(y_test.value_counts(normalize=True))
+
+    # Create scaler
+    scaler = StandardScaler()
+
+    # Fit ONLY on training data
+    X_train_scaled = scaler.fit_transform(X_train)
+
+    # Transform test data using training statistics
+    X_test_scaled = scaler.transform(X_test)
+
+    # Save scaler
+    joblib.dump(scaler, SCALER_PATH)
+
+    print("\nScaler saved to:", SCALER_PATH)
+
+    return X_train_scaled, X_test_scaled, y_train, y_test
 
 
 def main():
     df = load_data(DATA_PATH)
 
-    analyze_dataset(df)
-    descriptive_statistics(df)
-    check_missing_values(df)
-    analyze_class_distribution(df)
+    check_data_quality(df)
+
+    analyze_class_distribution(df["Class"])
+
+    X_train, X_test, y_train, y_test = preprocess_data(df)
 
 
 if __name__ == "__main__":
