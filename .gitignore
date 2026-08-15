@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset
+data/*.csv
+
+# Generated models
+models/*.pkl
+
+# OS
+.DS_Store
+Thumbs.db
