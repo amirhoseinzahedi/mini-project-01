@@ -1,5 +1,3 @@
-from typing import Any
-
 import joblib
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -73,11 +71,15 @@ def train_models(X_train, y_train):
         print(f"\n{name} trained in {elapsed_time:.4f}s")
 
     # OPTIONAL MODEL
+    model_path = "mini_project_01/models/mlp.pth"
     mlp_model = train_mlp(X_train, y_train, epochs=20, batch_size=256)
+    torch.save(mlp_model.state_dict(), model_path)
+    print(f"Simple MLP (NN) saved to {model_path}")
 
-    return trained_models, training_times
+    return trained_models  # , training_times
 
 
+################################# NEURAL NETWORK #################################
 class SimpleMLP(nn.Module):
     def __init__(self, input_size):
         super().__init__()
@@ -147,6 +149,9 @@ def predict_mlp(model, X):
         return predictions.numpy().ravel()
 
 
+################################# NEURAL NETWORK #################################
+
+
 def main():
     # Load and prepare data
     df = load_data()
@@ -156,10 +161,10 @@ def main():
     trained_models = train_models(X_train, y_train)
 
     # Save trained models
-    # for name, model in trained_models.items():
-    #     model_path = f"mini_project_01/models/{name.replace(' ', '_').lower()}.pkl"
-    #     joblib.dump(model, model_path)
-    #     print(f"{name} saved to {model_path}")
+    for name, model in trained_models.items():
+        model_path = f"mini_project_01/models/{name.replace(' ', '_').lower()}.pkl"
+        joblib.dump(model, model_path)
+        print(f"{name} saved to {model_path}")
 
 
 if __name__ == "__main__":
