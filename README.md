@@ -476,3 +476,8 @@ This shows that reducing False Positives alone is not necessarily desirable in f
 Overall, the appropriate balance depends on the relative cost of False Positives and False Negatives. In a fraud detection system, missing an actual fraudulent transaction can be particularly costly, so Fraud Recall should receive significant attention alongside Precision and F1-score.
 
 
+# Phase 6 - 5-Fold Stratified Cross Validation
+
+KNN had the highest mean Precision and mean F1-score.
+Decision Tree had a similar mean Recall but lower Precision.
+Logistic Regression had the lowest mean Recall and F1-score.

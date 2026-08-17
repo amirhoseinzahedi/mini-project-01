@@ -632,4 +632,115 @@ The MLP was evaluated on the held-out test set, but a training-versus-test perfo
 
 Therefore, the current results are not sufficient to conclude whether the MLP overfit.
 
+
+## Phase 6 — 5-Fold Stratified Cross Validation
+
+To evaluate the stability of the baseline models across different
+training and validation splits, 5-Fold Stratified Cross Validation
+was performed.
+
+`StratifiedKFold` was used because the dataset is highly imbalanced.
+Stratification ensures that each fold maintains approximately the
+same proportion of legitimate and fraudulent transactions.
+
+The following models were evaluated:
+
+- Logistic Regression
+- K-Nearest Neighbors
+- Decision Tree
+
+The evaluation metrics were:
+
+- Precision
+- Recall
+- F1-score
+
+Feature scaling was performed inside each cross-validation fold
+using a `Pipeline`. Therefore, the scaler was fitted only on the
+training portion of each fold and was not influenced by the
+validation portion.
+
+### Cross-Validation Results
+
+| Model | Mean Precision | Mean Recall | Mean F1 |
+|---|---:|---:|---:|
+| Logistic Regression | 87.02% | 62.00% | 72.32% |
+| K-Nearest Neighbors | **93.74%** | 77.44% | **84.79%** |
+| Decision Tree | 74.49% | **77.24%** | 75.81% |
+
+### Cross-Validation Standard Deviation
+
+| Model | Std Precision | Std Recall | Std F1 |
+|---|---:|---:|---:|
+| Logistic Regression | 0.0325 | 0.0379 | 0.0285 |
+| K-Nearest Neighbors | 0.0455 | 0.0244 | 0.0302 |
+| Decision Tree | 0.0332 | 0.0169 | 0.0224 |
+
+### Fold-Level Results
+
+#### Logistic Regression
+
+| Fold | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| 1 | 87.50% | 56.57% | 68.71% |
+| 2 | 82.67% | 62.63% | 71.26% |
+| 3 | 86.57% | 59.18% | 70.30% |
+| 4 | 92.65% | 64.29% | 75.90% |
+| 5 | 85.71% | 67.35% | 75.43% |
+| **Mean** | **87.02%** | **62.00%** | **72.32%** |
+
+#### K-Nearest Neighbors
+
+| Fold | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| 1 | 87.21% | 75.76% | 81.08% |
+| 2 | 100.00% | 78.79% | 88.14% |
+| 3 | 97.50% | 79.59% | 87.64% |
+| 4 | 92.86% | 79.59% | 85.71% |
+| 5 | 91.14% | 73.47% | 81.36% |
+| **Mean** | **93.74%** | **77.44%** | **84.79%** |
+
+#### Decision Tree
+
+| Fold | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| 1 | 74.75% | 74.75% | 74.75% |
+| 2 | 75.25% | 76.77% | 76.00% |
+| 3 | 76.47% | 79.59% | 78.00% |
+| 4 | 77.78% | 78.57% | 78.17% |
+| 5 | 68.18% | 76.53% | 72.12% |
+| **Mean** | **74.49%** | **77.24%** | **75.81%** |
+
+### Interpretation
+
+KNN achieved the highest mean Precision (93.74%) and the highest
+mean F1-score (84.79%) across the five folds.
+
+Its mean Recall was 77.44%, which was only slightly higher than the
+Decision Tree's 77.24% and substantially higher than Logistic
+Regression's 62.00%.
+
+The relatively small standard deviation of KNN's Recall (0.0244)
+indicates that its Recall was reasonably consistent across the five
+folds.
+
+The cross-validation results are also consistent with the held-out
+test-set results from Phase 5. KNN achieved an F1-score of 85.87% on
+the test set and a mean F1-score of 84.79% during cross-validation.
+
+This consistency provides additional evidence that KNN is a strong
+candidate for the final model.
+
+### Model Selection Implication
+
+Based on the 5-Fold Stratified Cross Validation results, KNN is the
+strongest traditional machine learning model among the three
+evaluated models.
+
+KNN achieved the highest mean F1-score and the highest mean
+Precision while maintaining strong Fraud Recall.
+
+These results will be considered together with the held-out test-set
+results when selecting the final model.
+
 ````
