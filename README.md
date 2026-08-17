@@ -390,24 +390,89 @@ The evaluation will focus particularly on:
 
 ## After Training Analysis
 
-This section will be completed after the models have been evaluated.
+### Was the initial hypothesis correct?
 
-### Was the Initial Hypothesis Correct?
+The initial hypotheses were mostly supported by the experiments.
 
-*To be completed after Phase 5.*
+Logistic Regression provided a useful baseline, achieving 99.91% Accuracy, 82.67% Precision, 63.27% Recall, and 71.68% F1-score. This confirmed that a simple linear classifier can detect a significant portion of fraudulent transactions, but its fraud detection performance was weaker than the other models.
 
-### Which Model Performed Best?
+The hypothesis that KNN would be affected by feature scaling was strongly supported. When KNN was trained on unscaled features, it achieved 100% Precision but only 3.06% Recall and a 5.94% F1-score. It detected only 3 of the 98 fraudulent transactions. After standardization, Recall increased to 80.61% and F1-score increased to 85.87%. This demonstrates that feature scaling is particularly important for distance-based algorithms such as KNN.
 
-*To be completed after Phase 5.*
+The hypothesis that the Decision Tree could overfit was also supported. The Decision Tree achieved perfect performance on the training set, with 100% Accuracy, Precision, Recall, and F1-score. However, on the test set its F1-score dropped to 74.87%, with Precision of 75.26% and Recall of 74.49%. This large train-test performance gap provides clear evidence of overfitting.
 
-### Which Metric Was Most Informative?
+The optional MLP also performed well. It achieved 99.95% Accuracy, 84.54% Precision, 83.67% Recall, and 84.10% F1-score. Its performance was comparable to KNN, although its Recall was slightly higher.
 
-*To be completed after Phase 5.*
+### Which model performed best?
 
-### How Did Class Imbalance Affect the Results?
+There is no single best model for every metric.
 
-*To be completed after Phase 5.*
+**KNN achieved the highest Precision and F1-score**, with:
 
-### What Was the Trade-off Between False Positives and False Negatives?
+* Precision: 91.86%
+* Recall: 80.61%
+* F1-score: 85.87%
+* False Positives: 7
+* False Negatives: 19
 
-*To be completed after Phase 5.*
+Therefore, KNN provided the best overall balance between Fraud Precision and Fraud Recall according to F1-score.
+
+However, **the MLP achieved the highest Fraud Recall**, detecting 82 of the 98 fraudulent transactions:
+
+* Precision: 84.54%
+* Recall: 83.67%
+* F1-score: 84.10%
+* False Positives: 15
+* False Negatives: 16
+
+Therefore, if minimizing missed fraud is the primary objective, the MLP would be preferable. If a balance between detecting fraud and limiting false alarms is preferred, KNN performed best according to F1-score.
+
+### Which metric was most informative?
+
+**Fraud Recall was one of the most informative metrics for this problem** because it measures the proportion of actual fraudulent transactions that were successfully detected.
+
+This is especially important because a False Negative represents a fraudulent transaction that the model incorrectly classified as legitimate.
+
+For example, Logistic Regression achieved 99.91% Accuracy but detected only 62 of the 98 fraudulent transactions, resulting in 36 False Negatives and a Fraud Recall of only 63.27%.
+
+The KNN scaling experiment provides an even stronger example. Unscaled KNN achieved 99.83% Accuracy and 100% Precision, but its Recall was only 3.06%. It detected only 3 fraudulent transactions while missing 95.
+
+F1-score was also highly informative because it combines Precision and Recall. KNN achieved the highest F1-score of 85.87%, indicating the best balance between detecting fraud and limiting false fraud alerts.
+
+Therefore, Accuracy alone was not an appropriate primary metric for this highly imbalanced dataset.
+
+### How did class imbalance affect the results?
+
+The test set contained 56,864 legitimate transactions but only 98 fraudulent transactions. Fraud therefore represented only a very small portion of the test set.
+
+Because legitimate transactions dominated the dataset, all four baseline models achieved approximately 99.9% Accuracy:
+
+| Model               | Accuracy | Precision | Recall | F1-score |
+| ------------------- | -------: | --------: | -----: | -------: |
+| Logistic Regression |   99.91% |    82.67% | 63.27% |   71.68% |
+| KNN                 |   99.95% |    91.86% | 80.61% |   85.87% |
+| Decision Tree       |   99.91% |    75.26% | 74.49% |   74.87% |
+| MLP                 |   99.95% |    84.54% | 83.67% |   84.10% |
+
+Despite the very similar Accuracy values, the models differed substantially in their ability to detect the minority fraud class.
+
+The KNN scaling experiment further demonstrates this problem. Unscaled KNN achieved 99.83% Accuracy while detecting only 3 of 98 fraudulent transactions. Therefore, a high Accuracy score can hide very poor fraud detection performance.
+
+### What was the trade-off between False Positives and False Negatives?
+
+The results demonstrate a trade-off between generating false fraud alerts and missing actual fraudulent transactions.
+
+KNN produced the fewest False Positives among the baseline models, with only 7, and also achieved the highest Precision at 91.86%. However, it still missed 19 fraudulent transactions.
+
+The MLP produced 15 False Positives but had the fewest False Negatives among the baseline models, with only 16. It therefore achieved the highest Fraud Recall at 83.67%.
+
+Logistic Regression produced 13 False Positives but missed 36 fraudulent transactions, resulting in the lowest Fraud Recall among the four models.
+
+The Decision Tree produced the highest number of False Positives, with 24, and also missed 25 fraudulent transactions.
+
+The KNN scaling experiment demonstrates the trade-off particularly clearly. Unscaled KNN produced zero False Positives, but this came at the cost of 95 False Negatives. After scaling, it produced 7 False Positives but reduced False Negatives from 95 to 19.
+
+This shows that reducing False Positives alone is not necessarily desirable in fraud detection. A model that rarely raises false alarms but misses most fraudulent transactions may be less useful than a model that generates some false alarms while successfully detecting a larger proportion of fraud.
+
+Overall, the appropriate balance depends on the relative cost of False Positives and False Negatives. In a fraud detection system, missing an actual fraudulent transaction can be particularly costly, so Fraud Recall should receive significant attention alongside Precision and F1-score.
+
+
