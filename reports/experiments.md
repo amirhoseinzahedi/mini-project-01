@@ -308,15 +308,10 @@ At this stage, no conclusions are made about which model performs best.
 
 ---
 
-Your current `experiments.md` is already well structured. I would **not rewrite Phases 1–4**. We only need to complete Phase 5 and make one small correction to the earlier sections.
-
-One important point: you **did not actually run a dedicated MLP train-vs-test experiment**, so the current placeholder:
 
 > Did the MLP overfit?
 
-should remain either **"Not investigated in this experiment"** or be removed. Don't claim MLP overfitting based on test results alone.
-
-Also, you haven't calculated ROC-AUC or PR-AUC, so those should **not remain as TBD requirements** unless you intend to implement them. Your assignment's required metrics are Accuracy, Precision, Recall, F1, and Confusion Matrix. ROC-AUC/PR-AUC were your earlier proposed metrics, not required by the Phase 5 instruction you showed me.
+**"Not investigated in this experiment"**
 
 ````markdown
 ## Phase 5 — Model Evaluation
@@ -435,33 +430,6 @@ Particular attention was given to Fraud Precision and Fraud Recall.
 ---
 
 ## KNN Scaling Experiment
-
-Because KNN is a distance-based algorithm, an additional experiment was performed to investigate the effect of feature scaling.
-
-Two KNN models were trained using the same training and test split:
-
-1. KNN using the original, unscaled features.
-2. KNN using standardized features.
-
-### Results
-
-| Version  | Accuracy | Precision | Recall | F1-score | False Positives | False Negatives |
-| -------- | -------: | --------: | -----: | -------: | --------------: | --------------: |
-| Unscaled |   99.83% |   100.00% |  3.06% |    5.94% |               0 |              95 |
-| Scaled   |   99.95% |    91.86% | 80.61% |   85.87% |               7 |              19 |
-
-### Observation
-
-The effect of scaling was substantial.
-
-The unscaled KNN produced zero False Positives and therefore achieved 100% Precision. However, it detected only 3 of the 98 fraudulent transactions and missed 95 fraud cases.
-
-After scaling, Fraud Recall increased from 3.06% to 80.61%, while F1-score increased from 5.94% to 85.87%.
-
-This demonstrates that feature scaling is critical for KNN in this dataset because distance calculations are affected by the scale of the features.
-
-The result also demonstrates why Precision and Accuracy should not be considered in isolation. The unscaled model appeared strong according to these metrics but was extremely poor at detecting fraud.
-
 ---
 
 ## Decision Tree Overfitting Experiment
@@ -742,5 +710,301 @@ Precision while maintaining strong Fraud Recall.
 
 These results will be considered together with the held-out test-set
 results when selecting the final model.
+
+# Phase 7 — Mandatory Experiments
+
+## Experiment 1 — Effect of Feature Scaling
+
+Because KNN is a distance-based algorithm, an additional experiment was performed to investigate the effect of feature scaling.
+
+Two KNN models were trained using the same training and test split:
+
+1. KNN using the original, unscaled features.
+2. KNN using standardized features.
+
+### Results
+
+| Version  | Accuracy | Precision | Recall | F1-score | False Positives | False Negatives |
+| -------- | -------: | --------: | -----: | -------: | --------------: | --------------: |
+| Unscaled |   99.83% |   100.00% |  3.06% |    5.94% |               0 |              95 |
+| Scaled   |   99.95% |    91.86% | 80.61% |   85.87% |               7 |              19 |
+
+### Observation
+
+The effect of scaling was substantial.
+
+The unscaled KNN produced zero False Positives and therefore achieved 100% Precision. However, it detected only 3 of the 98 fraudulent transactions and missed 95 fraud cases.
+
+After scaling, Fraud Recall increased from 3.06% to 80.61%, while F1-score increased from 5.94% to 85.87%.
+
+This demonstrates that feature scaling is critical for KNN in this dataset because distance calculations are affected by the scale of the features.
+
+The result also demonstrates why Precision and Accuracy should not be considered in isolation. The unscaled model appeared strong according to these metrics but was extremely poor at detecting fraud.
+
+Decision Trees are less sensitive to scaling because they make decisions using threshold comparisons, not distances. For example, sample_feature < 30 can become Scaled_sample_feature < 0.25 after scaling—the tree can simply adjust its threshold and make the same split. Therefore, scaling usually doesn't change a Decision Tree's decisions, unlike KNN, where scaling directly changes distance calculations.
+
+---
+
+## Experiment 2A — KNN Hyperparameter Analysis
+
+### Investigation
+
+This experiment investigates how the `n_neighbors` hyperparameter
+affects KNN performance.
+
+The following values were compared:
+
+- K = 1
+- K = 5
+- K = 20
+
+### Hypothesis
+
+A very small value of K may make KNN sensitive to individual
+observations and increase variance. Increasing K should make the
+decision boundary smoother, but an excessively large K may cause
+the model to become too general and fail to detect minority fraud
+patterns effectively.
+
+### Results
+
+| K | Precision | Recall | F1 |
+|---:|---:|---:|---:|
+| 1 | 86.96% | 81.63% | 84.21% |
+| 5 | 91.86% | 80.61% | 85.87% |
+| 20 | 84.52% | 72.45% | 78.02% |
+
+### Interpretation
+
+K=1 achieved the highest Recall, but its Precision was lower than
+K=5.
+
+K=5 achieved the highest F1-score and the highest Precision among
+the tested values, while maintaining strong Recall.
+
+Increasing K to 20 resulted in lower Precision, Recall, and F1-score.
+
+This suggests that K=20 produced a decision boundary that was too
+smooth to effectively capture some of the minority fraud patterns.
+
+Among the tested values, K=5 produced the strongest overall balance
+between Precision and Recall.
+
+This result will be considered later during model selection.
+
+---
+
+## Experiment 2B — Decision Tree Hyperparameter Analysis
+
+### Investigation
+
+This experiment investigates how the `max_depth` hyperparameter
+affects Decision Tree complexity, generalization, and overfitting.
+
+The following values were compared:
+
+- max_depth = 2
+- max_depth = 5
+- max_depth = 10
+- max_depth = None
+
+### Hypothesis
+
+A shallow tree may underfit because it cannot represent sufficiently
+complex relationships.
+
+Increasing the maximum depth should initially improve performance,
+but excessive depth may cause the model to memorize the training
+data and overfit.
+
+### Results
+
+| max_depth | Train Precision | Train Recall | Train F1 | Test Precision | Test Recall | Test F1 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2 | 83.66% | 75.38% | 79.31% | 76.53% | 76.53% | 76.53% |
+| 5 | 93.51% | 80.46% | 86.49% | 89.41% | 77.55% | 83.06% |
+| 10 | 100.00% | 85.53% | 92.20% | 89.02% | 74.49% | 81.11% |
+| None | 100.00% | 100.00% | 100.00% | 75.26% | 74.49% | 74.87% |
+
+### Interpretation
+
+At max_depth=2, the Decision Tree had relatively low training and
+test performance, suggesting that the model was too constrained
+to capture all relevant patterns.
+
+Increasing the depth to 5 improved both training and test
+performance. The test F1-score increased to 83.06%.
+
+At max_depth=10, training F1 increased to 92.20%, while test F1
+decreased to 81.11%. The increasing difference between training
+and test performance provides evidence of overfitting.
+
+The unrestricted tree provides the clearest example of overfitting.
+It achieved a training F1-score of 100%, but its test F1-score was
+only 74.87%.
+
+Among the tested values, max_depth=5 achieved the highest test
+F1-score.
+
+This result will be considered later during model selection.
+
+---
+
+## Experiment 3 — Classification Threshold
+
+### Investigation
+
+This experiment investigates how changing the classification
+threshold affects fraud detection performance.
+
+Logistic Regression was used because it produces class
+probabilities that can be converted into predictions using a
+custom threshold.
+
+The following thresholds were compared:
+
+- 0.3
+- 0.5
+- 0.7
+
+### Hypothesis
+
+Lowering the threshold should increase Fraud Recall because more
+transactions will be classified as fraudulent.
+
+However, this should also increase False Positives and reduce
+Precision.
+
+Increasing the threshold should have the opposite effect.
+
+### Results
+
+| Threshold | Precision | Recall | F1 | False Positives | False Negatives |
+|---:|---:|---:|---:|---:|---:|
+| 0.3 | 73.12% | 69.39% | 71.20% | 25 | 30 |
+| 0.5 | 82.67% | 63.27% | 71.68% | 13 | 36 |
+| 0.7 | 83.10% | 60.20% | 69.82% | 12 | 39 |
+
+### Interpretation
+
+Lowering the threshold from 0.5 to 0.3 increased Recall from 63.27%
+to 69.39% and reduced False Negatives from 36 to 30.
+
+However, Precision decreased from 82.67% to 73.12%, while False
+Positives increased from 13 to 25.
+
+Increasing the threshold to 0.7 had the opposite effect. Precision
+increased slightly to 83.10%, while Recall decreased to 60.20%.
+False Positives decreased to 12, but False Negatives increased to
+39.
+
+This demonstrates the Precision-Recall trade-off in fraud detection.
+
+A lower threshold favors fraud detection and reduces missed fraud,
+but generates more false alarms. A higher threshold reduces false
+alarms but increases the number of missed fraud transactions.
+
+No final threshold was selected at this stage. The appropriate
+threshold depends on the relative costs of False Positives and
+False Negatives and will be considered during the later model
+selection phase.
+
+## Phase 8 — Final Model Selection
+
+### Final Model
+
+The final model selected for this project is **K-Nearest Neighbors (KNN) with K=5**.
+
+The decision was based on the combined results from the test-set evaluation, hyperparameter experiments, and 5-fold stratified cross-validation.
+
+### Model Comparison
+
+| Model                         | Test Precision | Test Recall |    Test F1 | CV Mean Precision | CV Mean Recall | CV Mean F1 |
+| ----------------------------- | -------------: | ----------: | ---------: | ----------------: | -------------: | ---------: |
+| Logistic Regression           |         0.8267 |      0.6327 |     0.7168 |            0.8702 |         0.6200 |     0.7232 |
+| Decision Tree (`max_depth=5`) |         0.8941 |      0.7755 |     0.8306 |            0.7449 |         0.7724 |     0.7581 |
+| **KNN (`K=5`)**               |     **0.9186** |  **0.8061** | **0.8587** |        **0.9374** |     **0.7744** | **0.8479** |
+
+KNN achieved the highest test Precision, Recall, and F1-score among the evaluated models. It also achieved the highest mean Precision, Recall, and F1-score during 5-fold stratified cross-validation.
+
+This consistency between cross-validation and test-set performance provides stronger evidence for selecting KNN than relying only on the performance of a single test split.
+
+### KNN Hyperparameter Experiment
+
+Different values of K were evaluated:
+
+|     K |  Precision | Recall |   F1-score |
+| ----: | ---------: | -----: | ---------: |
+|     1 |     0.8696 | 0.8163 |     0.8421 |
+| **5** | **0.9186** | 0.8061 | **0.8587** |
+|    20 |     0.8452 | 0.7245 |     0.7802 |
+
+K=5 provided the highest Precision and F1-score while maintaining high Recall. Increasing K to 20 resulted in noticeably worse performance.
+
+Therefore, **K=5** was selected as the final KNN configuration.
+
+### Overfitting Considerations
+
+The Decision Tree experiments demonstrated the effect of excessive model complexity.
+
+For example, with `max_depth=None`, the Decision Tree achieved:
+
+* Training F1-score: 1.0000
+* Test F1-score: 0.7487
+
+This indicates substantial overfitting. The tree memorized the training data but generalized poorly to unseen data.
+
+A more constrained tree with `max_depth=5` performed better, achieving a test F1-score of 0.8306. However, it still did not outperform KNN.
+
+KNN therefore provided the strongest overall performance without the severe train/test performance gap observed in the deeper Decision Trees.
+
+---
+
+### Class Imbalance
+
+The dataset is highly imbalanced, with fraudulent transactions representing only a very small fraction of all transactions.
+
+Because of this imbalance, Accuracy is not an appropriate metric for selecting the final model. A model could achieve extremely high Accuracy by correctly classifying the large majority of legitimate transactions while still missing many fraudulent transactions.
+
+Therefore, Precision, Recall, F1-score, and the Confusion Matrix were given greater importance during model selection.
+
+Recall is particularly important because a false negative represents a fraudulent transaction that was not detected.
+
+---
+
+### Final Classification Threshold
+
+The final classification threshold selected for KNN is:
+
+**Threshold = 0.5**
+
+The KNN threshold experiment produced the following results:
+
+| Threshold |  Precision |     Recall |   F1-score | False Positives | False Negatives |
+| --------: | ---------: | ---------: | ---------: | --------------: | --------------: |
+|       0.3 |     0.8646 | **0.8469** |     0.8557 |              13 |          **15** |
+|       0.4 |     0.8646 | **0.8469** |     0.8557 |              13 |          **15** |
+|   **0.5** | **0.9186** |     0.8061 | **0.8587** |           **7** |              19 |
+|       0.6 |     0.9186 |     0.8061 |     0.8587 |               7 |              19 |
+|       0.7 | **0.9595** |     0.7245 |     0.8256 |           **3** |              27 |
+
+For KNN with K=5, the predicted probabilities are discrete because they are based on the five nearest neighbors. Therefore, some thresholds produce identical predictions. For example, thresholds 0.3 and 0.4 produce the same results, as do thresholds 0.5 and 0.6.
+
+Threshold 0.5 was selected because it provides the highest F1-score while maintaining high Precision and Recall. It also produces only 7 false positives while detecting 79 of the 98 fraudulent transactions in the test set.
+
+A lower threshold such as 0.3 detects four additional fraudulent transactions, reducing False Negatives from 19 to 15. However, it also increases False Positives from 7 to 13. Therefore, 0.5 provides a better overall balance between the False Positive and False Negative trade-off for this project.
+
+### Final Decision
+
+The final configuration selected for this project is:
+
+* **Model:** K-Nearest Neighbors
+* **K:** 5
+* **Classification Threshold:** 0.5
+
+The final model was selected based on the combined evidence from test-set performance, cross-validation, hyperparameter experiments, overfitting behavior, class imbalance, and the False Positive/False Negative trade-off.
+
+KNN with K=5 achieved the strongest overall balance among the evaluated models rather than being selected simply because of Accuracy.
+
 
 ````

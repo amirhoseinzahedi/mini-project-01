@@ -2,7 +2,7 @@ import pandas as pd
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import (
     precision_score,
     recall_score,
@@ -73,21 +73,20 @@ def main():
 
     X_train, X_test, y_train, y_test = prepare_data(df)
 
-    model = LogisticRegression(
-        max_iter=1000,
-        random_state=42,
+    model = KNeighborsClassifier(
+        n_neighbors=5,
     )
 
     model.fit(X_train, y_train)
 
     probabilities = model.predict_proba(X_test)[:, 1]
 
-    thresholds = [0.3, 0.5, 0.7]
+    thresholds = [0.3, 0.4, 0.5, 0.6, 0.7]
 
     results = []
 
     print("=" * 70)
-    print("CLASSIFICATION THRESHOLD EXPERIMENT")
+    print("KNN CLASSIFICATION THRESHOLD EXPERIMENT")
     print("=" * 70)
 
     for threshold in thresholds:
