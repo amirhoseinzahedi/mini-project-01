@@ -1,483 +1,676 @@
 # Mini Project 01 — Credit Card Fraud Detection
 
-## Project Overview
+This project investigates credit card fraud detection as a binary classification problem using several machine learning algorithms. The main focus is understanding how different models behave on a highly imbalanced dataset and how preprocessing, hyperparameters, and classification thresholds affect fraud detection performance.
 
-This project explores credit card fraud detection as a **binary classification problem** using the Credit Card Fraud Detection dataset.
+The project compares Logistic Regression, K-Nearest Neighbors (KNN), Decision Tree, and a simple Multi-Layer Perceptron (MLP). Additional experiments investigate feature scaling, KNN hyperparameters, Decision Tree depth, classification thresholds, and model stability using 5-Fold Stratified Cross Validation.
 
-The main objective is to investigate how different machine learning algorithms behave when detecting a highly imbalanced minority class.
+---
 
-The project compares:
+## 1. Problem Description
+
+### Business Scenario
+
+A financial institution needs to identify potentially fraudulent credit card transactions automatically. A fraud detection system should detect as many fraudulent transactions as possible while avoiding an excessive number of false alarms on legitimate transactions.
+
+This creates an important trade-off:
+
+* Missing a fraudulent transaction creates a **False Negative**.
+* Incorrectly flagging a legitimate transaction creates a **False Positive**.
+
+Because fraudulent transactions are rare, a model can achieve very high overall accuracy while still performing poorly at detecting fraud.
+
+### Objective
+
+The objective of this project is to build and evaluate binary classification models that can distinguish between:
+
+* `0` — Legitimate transaction
+* `1` — Fraudulent transaction
+
+The project focuses particularly on **Precision, Recall, F1-score, and Confusion Matrix**, rather than relying on Accuracy alone.
+
+### Dataset
+
+The project uses the **Credit Card Fraud Detection** dataset from Kaggle.
+
+The dataset contains:
+
+* **284,807 transactions**
+* **30 input features**
+* **1 binary target variable:** `Class`
+* **492 fraudulent transactions**
+* **284,315 legitimate transactions**
+
+The `V1`–`V28` features are anonymized PCA-transformed features. The remaining input features are `Time` and `Amount`.
+
+Fraudulent transactions represent approximately **0.17%** of the complete dataset, making this a severely imbalanced classification problem.
+
+---
+
+## 2. Data Analysis
+
+### Dataset Statistics
+
+| Property                |                 Value |
+| ----------------------- | --------------------: |
+| Total samples           |               284,807 |
+| Input features          |                    30 |
+| Total columns           |                    31 |
+| Legitimate transactions |               284,315 |
+| Fraudulent transactions |                   492 |
+| Fraud ratio             |                ~0.17% |
+| Problem type            | Binary classification |
+
+### Feature Information
+
+The input features are:
+
+* `Time`
+* `V1` through `V28`
+* `Amount`
+
+The target variable is:
+
+* `Class`
+
+where:
+
+* `Class = 0` → Legitimate
+* `Class = 1` → Fraudulent
+
+The `V1`–`V28` variables are anonymized PCA-transformed features.
+
+### Missing-Value Analysis
+
+No missing values were found in the dataset.
+
+All features are numerical, which means the dataset does not require categorical encoding.
+
+### Duplicate Analysis
+
+Exact duplicate rows were also checked during the data-quality analysis. Duplicate observations were identified.
+
+The duplicates were not removed from the baseline dataset. This decision was kept separate from the baseline modeling experiment so that the effect of data-cleaning decisions would not be mixed with the main modeling experiments.
+
+### Class Distribution
+
+| Class | Meaning    |   Count | Approx. Percentage |
+| ----- | ---------- | ------: | -----------------: |
+| 0     | Legitimate | 284,315 |             99.83% |
+| 1     | Fraudulent |     492 |              0.17% |
+
+The severe class imbalance is one of the most important characteristics of this dataset. It is also the main reason Accuracy is not an appropriate primary metric.
+
+---
+
+## 3. Data Preprocessing
+
+### Data-Quality Checks
+
+The following checks were performed:
+
+* Dataset shape was inspected.
+* Data types were checked.
+* Missing values were checked.
+* Duplicate rows were checked.
+* Target class distribution was examined.
+* All features were confirmed to be numerical.
+
+### Train/Test Split
+
+The dataset was divided into:
+
+* **80% training data**
+* **20% testing data**
+
+The split used:
+
+```python
+train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    stratify=y,
+    random_state=42
+)
+```
+
+This produced a test set containing:
+
+* 56,962 total transactions
+* 56,864 legitimate transactions
+* 98 fraudulent transactions
+
+### Stratification
+
+Stratification was used because the dataset is severely imbalanced.
+
+Without stratification, the relatively small fraud class could be distributed unevenly between the training and testing sets.
+
+Using `stratify=y` preserves approximately the same fraud-to-legitimate ratio in both subsets.
+
+### Scaling
+
+`StandardScaler` was used to standardize the features.
+
+The correct sequence was:
+
+```text
+Original Dataset
+       ↓
+Train/Test Split
+       ↓
+Fit StandardScaler on X_train
+       ↓
+Transform X_train
+       ↓
+Transform X_test
+```
+
+The scaler was fitted only on the training data.
+
+### Data Leakage Prevention
+
+Data leakage was avoided by never fitting the scaler on the complete dataset before the train/test split.
+
+The test set therefore remained unseen during the fitting of the preprocessing parameters.
+
+For cross-validation, scaling was performed inside each fold using a `Pipeline`. This ensured that the scaler was fitted only on the training portion of each fold and never on the corresponding validation portion.
+
+---
+
+## 4. Initial Hypothesis
+
+Before evaluating the models, several hypotheses were established.
+
+### Model Performance
+
+* **Logistic Regression** was expected to provide a strong baseline because it is simple, interpretable, and computationally efficient.
+* **Decision Tree** was expected to potentially perform well if the fraud patterns contained nonlinear relationships or feature interactions.
+* **KNN** was expected to be highly sensitive to feature scaling because it relies on distance calculations.
+* **MLP** was expected to learn nonlinear relationships but potentially suffer from the severe class imbalance.
+
+### Evaluation Metrics
+
+Recall was expected to be particularly important because a False Negative represents a fraudulent transaction that the system failed to detect.
+
+However, maximizing Recall alone was not considered sufficient. Precision and F1-score were also expected to be important because increasing Recall can generate more False Positives.
+
+### Accuracy Hypothesis
+
+It was expected that a model predicting every transaction as legitimate could achieve approximately 99.83% Accuracy while detecting zero fraudulent transactions.
+
+Therefore, Accuracy alone was expected to be misleading.
+
+### Scaling Hypothesis
+
+KNN was expected to be strongly affected by feature scaling because it determines neighboring observations using distances.
+
+### Decision Tree Hypothesis
+
+An unrestricted Decision Tree was expected to have a higher risk of overfitting than a constrained tree.
+
+The experiments largely supported these hypotheses.
+
+---
+
+## 5. Model Comparison
+
+### Models
+
+Four baseline models were evaluated:
 
 1. Logistic Regression
 2. K-Nearest Neighbors (KNN)
 3. Decision Tree
-4. Simple MLP / Neural Network using PyTorch
+4. Simple MLP / Neural Network
 
-The project is being developed incrementally, with each major phase committed to Git.
-
----
-
-# Phase 3 — Hypothesis Before Modeling
-
-The following hypotheses were established **before evaluating the trained models**.
-
-## 1. Which model do you expect to perform best?
-
-I expect **Logistic Regression** to provide a strong baseline because this is a binary classification problem and Logistic Regression is simple, interpretable, and computationally efficient.
-
-However, I also expect the **Decision Tree** to potentially outperform Logistic Regression if fraud patterns contain nonlinear relationships or interactions between features.
-
-For **KNN**, I expect performance to depend heavily on feature scaling because KNN relies on distances between observations.
-
-I also expect the **MLP** to be capable of learning nonlinear relationships, but its performance may be strongly affected by the severe class imbalance.
-
-My initial expectation is therefore:
-
-```text
-Logistic Regression → strong baseline
-Decision Tree       → potentially strongest classical model
-KNN                 → potentially competitive, but sensitive to scaling
-MLP                 → capable of nonlinear learning, but sensitive to imbalance
-```
-
-These hypotheses will only be considered confirmed or rejected after model evaluation.
-
----
-
-## 2. Which metric is more important: Precision, Recall, or F1-score?
-
-I expect **Recall** to be particularly important for this problem.
-
-Recall answers:
-
-> Of all the actual fraudulent transactions, how many did the model detect?
-
-[
-Recall = \frac{TP}{TP + FN}
-]
-
-A **False Negative** occurs when a fraudulent transaction is classified as legitimate. In a fraud-detection system, failing to detect fraud can have a significant cost.
-
-However, maximizing Recall alone is not sufficient.
-
-A model could classify a very large number of transactions as fraudulent and achieve high Recall while generating many False Positives.
-
-Therefore, I will consider:
-
-* **Recall** — important for minimizing missed fraud
-* **Precision** — important for controlling false alarms
-* **F1-score** — useful for balancing Precision and Recall
-* **PR-AUC** — particularly useful because of the severe class imbalance
-
-My initial hypothesis is:
-
-> **Recall will be the most important individual metric, but the final model should balance Recall and Precision rather than maximizing Recall alone.**
-
----
-
-## 3. What happens if the model predicts all transactions as legitimate?
-
-If the model predicts:
-
-```text
-Every transaction → Class 0
-```
-
-it will correctly classify approximately **99.83%** of the transactions because the dataset is extremely imbalanced.
-
-Therefore, the accuracy would be approximately:
-
-```text
-99.83%
-```
-
-However:
-
-```text
-True Positives  = 0
-False Negatives = 492
-```
-
-Consequently:
-
-```text
-Recall = 0
-```
-
-The model would detect **zero fraudulent transactions** despite having extremely high accuracy.
-
-This demonstrates why accuracy alone is misleading for this problem.
-
-My hypothesis is therefore:
-
-> **A model with extremely high accuracy can still be completely ineffective for fraud detection.**
-
----
-
-## 4. Do I expect feature scaling to significantly affect KNN?
-
-**Yes.**
-
-KNN determines which observations are close to one another using a distance metric.
-
-For example:
-
-```text
-Distance =
-√((x₁-a₁)² + (x₂-a₂)² + ...)
-```
-
-Features with larger numerical scales can therefore have a disproportionate influence on the distance calculation.
-
-In this dataset, `Time` and `Amount` have different scales from the PCA-transformed `V1`–`V28` features.
-
-I therefore expect:
-
-```text
-Unscaled KNN
-     ↓
-Larger-scale features have greater influence
-     ↓
-Potentially worse distance-based classification
-```
-
-while:
-
-```text
-Scaled KNN
-     ↓
-Features are placed on comparable scales
-     ↓
-Potentially better KNN performance
-```
-
-My hypothesis is:
-
-> **Feature scaling will significantly affect KNN performance.**
-
-To avoid data leakage, scaling is performed only after the train/test split, with the scaler fitted exclusively on the training data.
-
----
-
-## 5. Do I expect the Decision Tree to overfit?
-
-**Yes, particularly when the tree is allowed to grow without constraints.**
-
-A Decision Tree can repeatedly split the training data until it creates highly specific rules for individual observations.
-
-A sufficiently deep tree could therefore produce:
-
-```text
-Training performance → extremely high
-Testing performance  → significantly lower
-```
-
-which would indicate overfitting.
-
-The baseline Decision Tree is therefore intentionally unrestricted:
-
-```python
-DecisionTreeClassifier(
-    random_state=42
-)
-```
-
-My hypothesis is:
-
-> **An unrestricted Decision Tree will have a higher risk of overfitting than a constrained tree.**
-
-This behavior will be investigated during model evaluation.
-
----
-
-## 6. MLP / Neural Network Hypothesis
-
-The project also includes a simple feed-forward neural network implemented using PyTorch.
-
-The baseline architecture is:
+The MLP used the following architecture:
 
 ```text
 Input: 30 features
-       ↓
+      ↓
 Linear(30 → 64)
-       ↓
+      ↓
 ReLU
-       ↓
+      ↓
 Linear(64 → 32)
-       ↓
+      ↓
 ReLU
-       ↓
+      ↓
 Linear(32 → 1)
 ```
 
-I expect the MLP to be capable of learning nonlinear relationships between the features and the fraud class.
+The MLP used Adam optimization, a learning rate of `0.001`, 20 epochs, batch size 256, and `BCEWithLogitsLoss`.
 
-However, because fraudulent transactions represent only a very small fraction of the dataset, I expect the baseline MLP to be affected substantially by class imbalance.
+### Evaluation Metrics
 
-I also expect the MLP to have some risk of overfitting because it has considerably more trainable parameters than the simpler baseline models.
-
----
-
-# Initial Hypotheses Summary
-
-| Question                     | Initial Hypothesis                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| Expected strongest model     | Decision Tree or Logistic Regression among classical models                         |
-| MLP                          | Potentially strong nonlinear model, but sensitive to class imbalance                |
-| Most important metric        | Recall, while monitoring Precision, F1-score and PR-AUC                             |
-| All predictions = legitimate | Very high accuracy but zero fraud detection                                         |
-| Scaling and KNN              | Scaling should significantly affect performance                                     |
-| Decision Tree                | Unrestricted tree is likely to overfit                                              |
-| MLP                          | Capable of nonlinear learning but potentially affected by imbalance and overfitting |
-
----
-
-# Phase 4 — Model Training
-
-Four baseline models were implemented and trained.
-
-## Model 1 — Logistic Regression
-
-Purpose:
-
-* Establish a simple classification baseline.
-* Analyze the behavior of a linear classifier on an imbalanced dataset.
-
-Configuration:
-
-```python
-LogisticRegression(
-    random_state=42,
-    max_iter=1000
-)
-```
-
----
-
-## Model 2 — K-Nearest Neighbors
-
-Purpose:
-
-* Analyze distance-based learning.
-* Study the impact of feature scaling.
-
-Configuration:
-
-```python
-KNeighborsClassifier(
-    n_neighbors=5
-)
-```
-
-The model was trained using the standardized feature values.
-
----
-
-## Model 3 — Decision Tree Classifier
-
-Purpose:
-
-* Explore nonlinear decision boundaries.
-* Analyze overfitting behavior.
-* Investigate the effect of class imbalance.
-
-Configuration:
-
-```python
-DecisionTreeClassifier(
-    random_state=42
-)
-```
-
-No `max_depth` constraint was applied in the baseline experiment so that potential overfitting could be investigated.
-
----
-
-## Model 4 — Simple MLP / Neural Network
-
-Purpose:
-
-* Explore nonlinear decision boundaries.
-* Investigate neural-network behavior on tabular data.
-* Analyze potential overfitting.
-* Compare a neural-network approach with traditional machine learning models.
-
-Framework:
-
-```text
-PyTorch
-```
-
-Architecture:
-
-```text
-Input (30 features)
-        ↓
-Linear(30 → 64)
-        ↓
-ReLU
-        ↓
-Linear(64 → 32)
-        ↓
-ReLU
-        ↓
-Linear(32 → 1)
-```
-
-Training configuration:
-
-```text
-Optimizer: Adam
-Learning Rate: 0.001
-Epochs: 20
-Batch Size: 256
-Loss: BCEWithLogitsLoss
-Class Weighting: Not applied
-```
-
-Class weighting and other imbalance-handling techniques were intentionally not applied during the baseline experiment.
-
----
-
-## Baseline Training Strategy
-
-All baseline models use the same fundamental preprocessing procedure:
-
-```text
-Dataset
-   ↓
-Stratified Train/Test Split
-   ↓
-Fit StandardScaler on Training Data
-   ↓
-Transform Training Data
-   ↓
-Transform Test Data
-   ↓
-Train Model
-```
-
-No oversampling, undersampling, SMOTE, or class weighting is used in the baseline training stage.
-
-This allows the effect of class imbalance to be investigated before introducing additional techniques.
-
----
-
-# Phase 5 — Model Evaluation
-
-*Model evaluation has not yet been completed.*
-
-The models will be compared using metrics appropriate for the imbalanced classification problem, including:
+The main evaluation metrics were:
 
 * Accuracy
 * Precision
 * Recall
 * F1-score
-* Confusion Matrix
-* ROC-AUC
-* PR-AUC
-
-The evaluation will focus particularly on:
-
 * False Positives
 * False Negatives
-* The Precision/Recall trade-off
-* The effect of class imbalance
-* Training vs. testing performance
-* Evidence of overfitting
+* Confusion Matrix
+
+Because of the severe class imbalance, Precision, Recall, and F1-score were given greater importance than Accuracy.
+
+### Test-Set Results
+
+| Model               | Accuracy | Precision |     Recall |   F1-score | False Positives | False Negatives |
+| ------------------- | -------: | --------: | ---------: | ---------: | --------------: | --------------: |
+| Logistic Regression |   99.91% |    82.67% |     63.27% |     71.68% |              13 |              36 |
+| KNN                 |   99.95% |    91.86% |     80.61% | **85.87%** |           **7** |              19 |
+| Decision Tree       |   99.91% |    75.26% |     74.49% |     74.87% |              24 |              25 |
+| MLP                 |   99.95% |    84.54% | **83.67%** |     84.10% |              15 |          **16** |
+
+The test-set results show that all models achieved approximately 99.9% Accuracy, but their fraud-detection performance was substantially different.
+
+KNN achieved the highest Precision and F1-score, while the MLP achieved the highest Recall.
+
+### Confusion Matrices
+
+#### Logistic Regression
+
+```text
+[[56851    13]
+ [   36    62]]
+```
+
+* True Negatives: 56,851
+* False Positives: 13
+* False Negatives: 36
+* True Positives: 62
+
+#### KNN
+
+```text
+[[56857     7]
+ [   19    79]]
+```
+
+* True Negatives: 56,857
+* False Positives: 7
+* False Negatives: 19
+* True Positives: 79
+
+#### Decision Tree
+
+```text
+[[56840    24]
+ [   25    73]]
+```
+
+* True Negatives: 56,840
+* False Positives: 24
+* False Negatives: 25
+* True Positives: 73
+
+#### MLP
+
+```text
+[[56849    15]
+ [   16    82]]
+```
+
+* True Negatives: 56,849
+* False Positives: 15
+* False Negatives: 16
+* True Positives: 82
+
+### Cross-Validation Results
+
+5-Fold Stratified Cross Validation was used for Logistic Regression, KNN, and Decision Tree.
+
+| Model               | Mean Precision | Mean Recall |    Mean F1 |
+| ------------------- | -------------: | ----------: | ---------: |
+| Logistic Regression |         87.02% |      62.00% |     72.32% |
+| KNN                 |     **93.74%** |  **77.44%** | **84.79%** |
+| Decision Tree       |         74.49% |      77.24% |     75.81% |
+
+KNN achieved the highest mean Precision and F1-score and also slightly exceeded the Decision Tree in mean Recall.
+
+The KNN mean F1-score of 84.79% was also close to its held-out test F1-score of 85.87%, providing consistent evidence that KNN generalized well across different data splits.
 
 ---
 
-## After Training Analysis
+## 6. Scaling Experiment
 
-### Was the initial hypothesis correct?
+The effect of feature scaling was specifically investigated for KNN.
 
-The initial hypotheses were mostly supported by the experiments.
+Two KNN models were compared using the same train/test split:
 
-Logistic Regression provided a useful baseline, achieving 99.91% Accuracy, 82.67% Precision, 63.27% Recall, and 71.68% F1-score. This confirmed that a simple linear classifier can detect a significant portion of fraudulent transactions, but its fraud detection performance was weaker than the other models.
+1. KNN using unscaled features
+2. KNN using standardized features
 
-The hypothesis that KNN would be affected by feature scaling was strongly supported. When KNN was trained on unscaled features, it achieved 100% Precision but only 3.06% Recall and a 5.94% F1-score. It detected only 3 of the 98 fraudulent transactions. After standardization, Recall increased to 80.61% and F1-score increased to 85.87%. This demonstrates that feature scaling is particularly important for distance-based algorithms such as KNN.
+### Results
 
-The hypothesis that the Decision Tree could overfit was also supported. The Decision Tree achieved perfect performance on the training set, with 100% Accuracy, Precision, Recall, and F1-score. However, on the test set its F1-score dropped to 74.87%, with Precision of 75.26% and Recall of 74.49%. This large train-test performance gap provides clear evidence of overfitting.
+| Version      | Accuracy | Precision | Recall |   F1-score | False Positives | False Negatives |
+| ------------ | -------: | --------: | -----: | ---------: | --------------: | --------------: |
+| Unscaled KNN |   99.83% |   100.00% |  3.06% |      5.94% |               0 |              95 |
+| Scaled KNN   |   99.95% |    91.86% | 80.61% | **85.87%** |               7 |              19 |
 
-The optional MLP also performed well. It achieved 99.95% Accuracy, 84.54% Precision, 83.67% Recall, and 84.10% F1-score. Its performance was comparable to KNN, although its Recall was slightly higher.
+The effect of scaling was substantial.
 
-### Which model performed best?
+The unscaled KNN achieved 100% Precision and 99.83% Accuracy, but detected only 3 of the 98 fraudulent transactions.
 
-There is no single best model for every metric.
+After scaling:
 
-**KNN achieved the highest Precision and F1-score**, with:
+* Recall increased from **3.06% → 80.61%**
+* F1-score increased from **5.94% → 85.87%**
+* False Negatives decreased from **95 → 19**
 
-* Precision: 91.86%
-* Recall: 80.61%
-* F1-score: 85.87%
-* False Positives: 7
-* False Negatives: 19
+This confirms the initial hypothesis that KNN is highly sensitive to feature scaling.
 
-Therefore, KNN provided the best overall balance between Fraud Precision and Fraud Recall according to F1-score.
+The reason is that KNN uses distances between observations. Features with larger numerical scales can therefore have disproportionate influence on the distance calculation.
 
-However, **the MLP achieved the highest Fraud Recall**, detecting 82 of the 98 fraudulent transactions:
+---
 
-* Precision: 84.54%
-* Recall: 83.67%
-* F1-score: 84.10%
-* False Positives: 15
-* False Negatives: 16
+## 7. Hyperparameter Experiment
 
-Therefore, if minimizing missed fraud is the primary objective, the MLP would be preferable. If a balance between detecting fraud and limiting false alarms is preferred, KNN performed best according to F1-score.
+Two hyperparameter experiments were performed.
 
-### Which metric was most informative?
+### KNN — `n_neighbors`
 
-**Fraud Recall was one of the most informative metrics for this problem** because it measures the proportion of actual fraudulent transactions that were successfully detected.
+The values `K=1`, `K=5`, and `K=20` were compared.
 
-This is especially important because a False Negative represents a fraudulent transaction that the model incorrectly classified as legitimate.
+|  K |  Precision |     Recall |   F1-score |
+| -: | ---------: | ---------: | ---------: |
+|  1 |     86.96% | **81.63%** |     84.21% |
+|  5 | **91.86%** |     80.61% | **85.87%** |
+| 20 |     84.52% |     72.45% |     78.02% |
 
-For example, Logistic Regression achieved 99.91% Accuracy but detected only 62 of the 98 fraudulent transactions, resulting in 36 False Negatives and a Fraud Recall of only 63.27%.
+`K=1` produced the highest Recall, but `K=5` achieved the highest Precision and F1-score.
 
-The KNN scaling experiment provides an even stronger example. Unscaled KNN achieved 99.83% Accuracy and 100% Precision, but its Recall was only 3.06%. It detected only 3 fraudulent transactions while missing 95.
+Increasing K to 20 caused all three metrics to decrease. This suggests that the larger neighborhood produced a decision boundary that was too smooth to capture some minority fraud patterns.
 
-F1-score was also highly informative because it combines Precision and Recall. KNN achieved the highest F1-score of 85.87%, indicating the best balance between detecting fraud and limiting false fraud alerts.
+Therefore, **K=5** provided the strongest overall balance.
 
-Therefore, Accuracy alone was not an appropriate primary metric for this highly imbalanced dataset.
+### Decision Tree — `max_depth`
 
-### How did class imbalance affect the results?
+The values `2`, `5`, `10`, and `None` were compared.
 
-The test set contained 56,864 legitimate transactions but only 98 fraudulent transactions. Fraud therefore represented only a very small portion of the test set.
+| max_depth | Train F1 | Test Precision | Test Recall |    Test F1 |
+| --------: | -------: | -------------: | ----------: | ---------: |
+|         2 |   79.31% |         76.53% |      76.53% |     76.53% |
+|         5 |   86.49% |     **89.41%** |  **77.55%** | **83.06%** |
+|        10 |   92.20% |         89.02% |      74.49% |     81.11% |
+|      None |  100.00% |         75.26% |      74.49% |     74.87% |
 
-Because legitimate transactions dominated the dataset, all four baseline models achieved approximately 99.9% Accuracy:
+A depth of 2 was relatively constrained and showed signs of underfitting.
 
-| Model               | Accuracy | Precision | Recall | F1-score |
-| ------------------- | -------: | --------: | -----: | -------: |
-| Logistic Regression |   99.91% |    82.67% | 63.27% |   71.68% |
-| KNN                 |   99.95% |    91.86% | 80.61% |   85.87% |
-| Decision Tree       |   99.91% |    75.26% | 74.49% |   74.87% |
-| MLP                 |   99.95% |    84.54% | 83.67% |   84.10% |
+Increasing the depth to 5 improved the test F1-score to 83.06%.
 
-Despite the very similar Accuracy values, the models differed substantially in their ability to detect the minority fraud class.
+At depth 10, training performance continued to increase while test performance decreased, indicating increasing overfitting.
 
-The KNN scaling experiment further demonstrates this problem. Unscaled KNN achieved 99.83% Accuracy while detecting only 3 of 98 fraudulent transactions. Therefore, a high Accuracy score can hide very poor fraud detection performance.
+The unrestricted tree achieved 100% training F1-score but only 74.87% test F1-score, providing clear evidence of overfitting.
 
-### What was the trade-off between False Positives and False Negatives?
+Among the tested configurations, `max_depth=5` produced the best Decision Tree test F1-score.
 
-The results demonstrate a trade-off between generating false fraud alerts and missing actual fraudulent transactions.
+---
 
-KNN produced the fewest False Positives among the baseline models, with only 7, and also achieved the highest Precision at 91.86%. However, it still missed 19 fraudulent transactions.
+## 8. Classification Threshold Experiment
 
-The MLP produced 15 False Positives but had the fewest False Negatives among the baseline models, with only 16. It therefore achieved the highest Fraud Recall at 83.67%.
+Classification thresholds were investigated to understand the Precision/Recall trade-off.
 
-Logistic Regression produced 13 False Positives but missed 36 fraudulent transactions, resulting in the lowest Fraud Recall among the four models.
+For Logistic Regression, thresholds of `0.3`, `0.5`, and `0.7` were evaluated.
 
-The Decision Tree produced the highest number of False Positives, with 24, and also missed 25 fraudulent transactions.
+| Threshold |  Precision |     Recall |   F1-score | False Positives | False Negatives |
+| --------: | ---------: | ---------: | ---------: | --------------: | --------------: |
+|       0.3 |     73.12% | **69.39%** |     71.20% |              25 |              30 |
+|       0.5 |     82.67% |     63.27% | **71.68%** |              13 |              36 |
+|       0.7 | **83.10%** |     60.20% |     69.82% |              12 |              39 |
 
-The KNN scaling experiment demonstrates the trade-off particularly clearly. Unscaled KNN produced zero False Positives, but this came at the cost of 95 False Negatives. After scaling, it produced 7 False Positives but reduced False Negatives from 95 to 19.
+Lowering the threshold from 0.5 to 0.3 caused more transactions to be classified as fraud.
 
-This shows that reducing False Positives alone is not necessarily desirable in fraud detection. A model that rarely raises false alarms but misses most fraudulent transactions may be less useful than a model that generates some false alarms while successfully detecting a larger proportion of fraud.
+As a result:
 
-Overall, the appropriate balance depends on the relative cost of False Positives and False Negatives. In a fraud detection system, missing an actual fraudulent transaction can be particularly costly, so Fraud Recall should receive significant attention alongside Precision and F1-score.
+* Recall increased from 63.27% to 69.39%.
+* False Negatives decreased from 36 to 30.
+* Precision decreased from 82.67% to 73.12%.
+* False Positives increased from 13 to 25.
 
+Increasing the threshold had the opposite effect.
 
-# Phase 6 - 5-Fold Stratified Cross Validation
+This demonstrates the central Precision/Recall trade-off in fraud detection:
 
-KNN had the highest mean Precision and mean F1-score.
-Decision Tree had a similar mean Recall but lower Precision.
-Logistic Regression had the lowest mean Recall and F1-score.
+```text
+Lower threshold
+      ↓
+More fraud detected
+      ↓
+Higher Recall
+      ↓
+More False Positives
+      ↓
+Lower Precision
+```
+
+A lower threshold is useful when missing fraud is considered more costly than generating additional alerts.
+
+---
+
+## 9. Final Model Selection
+
+The final selected configuration is:
+
+* **Model:** K-Nearest Neighbors
+* **K:** 5
+* **Scaling:** StandardScaler
+* **Classification Threshold:** 0.5
+
+### Why KNN?
+
+KNN was selected based on the combined evidence from:
+
+* Held-out test-set performance
+* 5-Fold Stratified Cross Validation
+* KNN hyperparameter experiment
+* Scaling experiment
+* False Positive / False Negative trade-off
+* Comparison with Decision Tree overfitting
+
+KNN achieved:
+
+* Test Precision: **91.86%**
+* Test Recall: **80.61%**
+* Test F1-score: **85.87%**
+* Cross-validation mean Precision: **93.74%**
+* Cross-validation mean Recall: **77.44%**
+* Cross-validation mean F1-score: **84.79%**
+
+It therefore provided the strongest overall balance between Precision and Recall among the evaluated traditional models.
+
+The MLP achieved slightly higher Recall at 83.67%, but KNN achieved better Precision and F1-score.
+
+### Why K=5?
+
+Among the tested K values:
+
+* `K=1` had higher Recall but lower Precision and F1-score.
+* `K=5` achieved the highest F1-score.
+* `K=20` produced substantially worse performance.
+
+Therefore, `K=5` provided the best overall balance.
+
+### Why Threshold = 0.5?
+
+For the final KNN model, the threshold experiment produced:
+
+| Threshold |  Precision | Recall |   F1-score | False Positives | False Negatives |
+| --------: | ---------: | -----: | ---------: | --------------: | --------------: |
+|       0.3 |     86.46% | 84.69% |     85.57% |              13 |              15 |
+|       0.4 |     86.46% | 84.69% |     85.57% |              13 |              15 |
+|       0.5 | **91.86%** | 80.61% | **85.87%** |           **7** |              19 |
+|       0.6 |     91.86% | 80.61% |     85.87% |               7 |              19 |
+|       0.7 |     95.95% | 72.45% |     82.56% |               3 |              27 |
+
+KNN with `K=5` produces discrete probability values because the probability is based on the five nearest neighbors. Therefore, some thresholds produce identical predictions.
+
+Threshold `0.5` was selected because it achieved the highest F1-score while also producing the fewest False Positives among the stronger configurations.
+
+A threshold of 0.3 detected four additional fraudulent transactions, reducing False Negatives from 19 to 15, but increased False Positives from 7 to 13.
+
+Therefore, `0.5` was considered the better overall balance for this educational project.
+
+### Final Configuration
+
+```text
+K-Nearest Neighbors
+        ↓
+K = 5
+        ↓
+StandardScaler
+        ↓
+Classification Threshold = 0.5
+```
+
+The final model and scaler were saved using `joblib` as:
+
+```text
+models/
+├── model.pkl
+└── scaler.pkl
+```
+
+---
+
+## 10. Running Instructions
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/amirhoseinzahedi/mini-project-01.git
+cd mini-project-01
+```
+
+Install the required Python packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+The project uses:
+
+* pandas
+* NumPy
+* matplotlib
+* scikit-learn
+* joblib
+* PyTorch
+
+### Training
+
+The project contains separate scripts for data preparation, model training, evaluation, experiments, model saving, and prediction.
+
+The main training script is:
+
+```bash
+python src/train.py
+```
+
+Model evaluation can be performed using:
+
+```bash
+python src/evaluate.py
+```
+
+Cross-validation can be run using:
+
+```bash
+python src/cross_validate.py
+```
+
+The experiment scripts are:
+
+```bash
+python src/experiment_knn.py
+python src/experiment_tree.py
+python src/experiment_threshold.py
+```
+
+### Prediction
+
+The final prediction pipeline is implemented in:
+
+```text
+src/predict.py
+```
+
+It loads:
+
+```text
+models/scaler.pkl
+models/model.pkl
+```
+
+and applies the same preprocessing used during training before making a prediction.
+
+The prediction pipeline is:
+
+```text
+Input Transaction
+       ↓
+Feature Validation
+       ↓
+Load Scaler
+       ↓
+Scale Features
+       ↓
+Load KNN Model
+       ↓
+Predict Fraud Probability
+       ↓
+Apply Threshold = 0.5
+       ↓
+Prediction
+```
+
+The model expects the following 30 input features:
+
+```text
+Time
+V1 ... V28
+Amount
+```
+
+---
+
+## 11. Reflection
+
+### Question 1
+
+**Why is Accuracy a misleading metric for this dataset?**
+
+Accuracy is misleading because the dataset is extremely imbalanced. Only 492 of the 284,807 transactions are fraudulent, representing approximately 0.17% of the data. A model that predicts every transaction as legitimate would achieve approximately 99.83% Accuracy while detecting zero fraudulent transactions. The experiments demonstrated the same problem in practice: the unscaled KNN achieved 99.83% Accuracy and 100% Precision but detected only 3 of the 98 fraudulent transactions in the test set. Therefore, Accuracy does not adequately measure the model's ability to detect the minority fraud class.
+
+### Question 2
+
+**What is the trade-off between detecting more fraudulent transactions and generating more false alarms?**
+
+Detecting more fraudulent transactions generally requires accepting more False Positives. Lowering the classification threshold makes the model more likely to classify transactions as fraudulent, which increases Recall and reduces False Negatives, but it also increases the number of legitimate transactions incorrectly flagged as fraud. For example, lowering the Logistic Regression threshold from 0.5 to 0.3 increased Recall from 63.27% to 69.39%, but False Positives increased from 13 to 25. In a real fraud detection system, the appropriate threshold depends on the relative business costs of missed fraud and false alarms.
+
+### Question 3
+
+**If you had one additional week, what would you improve in your fraud detection system?**
+
+I would focus on improving the handling of the severe class imbalance and on evaluating the system using more realistic fraud-detection criteria. I would investigate techniques such as class weighting, SMOTE, and alternative sampling strategies, while carefully avoiding data leakage. I would also evaluate additional models such as Random Forest or gradient-boosting methods and compare them using Precision-Recall AUC. Finally, I would perform more systematic threshold optimization based on an explicit business cost for False Positives and False Negatives instead of selecting the threshold only from a small set of candidate values.
+
+---
+
+## 12. Conclusion
+
+This project demonstrated that credit card fraud detection is fundamentally different from ordinary balanced classification because fraudulent transactions are extremely rare.
+
+The experiments showed that Accuracy alone can be misleading. All baseline models achieved approximately 99.9% Accuracy, yet their ability to detect fraud differed considerably.
+
+Feature scaling had a particularly strong effect on KNN. Without scaling, KNN detected only 3 of 98 fraudulent transactions. After standardization, Recall increased from 3.06% to 80.61% and F1-score increased from 5.94% to 85.87%.
+
+The hyperparameter experiments showed that `K=5` provided the best overall KNN performance among the tested values. The Decision Tree experiments also demonstrated how excessive model complexity can lead to overfitting.
+
+Based on the combined test-set results, cross-validation, hyperparameter experiments, and error trade-offs, **KNN with K=5 and a classification threshold of 0.5** was selected as the final model.
+
+The final result emphasizes an important practical lesson: a fraud detection system should not be optimized simply for overall Accuracy. The ability to detect fraudulent transactions while controlling false alarms must be considered together, with particular attention to Precision, Recall, F1-score, and the business cost of False Positives and False Negatives.
