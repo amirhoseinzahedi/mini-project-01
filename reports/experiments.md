@@ -1006,5 +1006,131 @@ The final model was selected based on the combined evidence from test-set perfor
 
 KNN with K=5 achieved the strongest overall balance among the evaluated models rather than being selected simply because of Accuracy.
 
+## Phase 9 — Model Saving
+
+After selecting the final model and classification threshold, the components required for the final prediction pipeline were saved.
+
+### Final Model
+
+The selected model from Phase 8 was:
+
+* **Model:** K-Nearest Neighbors
+* **K:** 5
+* **Classification Threshold:** 0.5
+
+The final KNN model was retrained using the complete dataset and saved using `joblib`.
+
+### Saved Components
+
+The `models/` directory contains:
+
+```text
+models/
+├── model.pkl
+└── scaler.pkl
+```
+
+* `model.pkl` contains the final KNN model.
+* `scaler.pkl` contains the `StandardScaler` used to transform the input features.
+
+For the final deployment model, the scaler was fitted on the complete feature dataset before the final KNN model was trained.
+
+### Reproducibility
+
+The preprocessing used during prediction must be identical to the preprocessing used during training.
+
+The final pipeline therefore applies the saved `StandardScaler` to a new transaction before passing it to the saved KNN model.
+
+This prevents the prediction process from using a different scaling procedure from the one used when training the model.
+
+---
+
+## Phase 10 — Prediction Script
+
+A reusable prediction script was implemented in:
+
+```text
+src/predict.py
+```
+
+The script receives a transaction as a JSON object and performs the complete prediction pipeline.
+
+### Prediction Pipeline
+
+```text
+JSON Transaction
+       ↓
+Feature Validation
+       ↓
+Create DataFrame
+       ↓
+Load scaler.pkl
+       ↓
+Scale Features
+       ↓
+Load model.pkl
+       ↓
+KNN Prediction
+       ↓
+Fraud Probability
+       ↓
+Apply Threshold = 0.5
+       ↓
+JSON Output
+```
+
+The script validates that the transaction contains exactly the 30 features used during training:
+
+* `Time`
+* `V1` through `V28`
+* `Amount`
+
+The transaction is then transformed using the saved `StandardScaler`.
+
+The transformed transaction is passed to the final KNN model, and `predict_proba()` is used to obtain the fraud-class score. The selected classification threshold of `0.5` is then applied to produce the final prediction.
+
+### Prediction Output
+
+The prediction script returns JSON-compatible output containing:
+
+* `prediction`
+* `fraud_probability`
+* `is_fraud`
+* `threshold`
+
+For example:
+
+```json
+{
+  "prediction": 1,
+  "fraud_probability": 1.0,
+  "is_fraud": true,
+  "threshold": 0.5
+}
+```
+
+For KNN with `K=5`, the fraud score is determined by the proportion of the five nearest neighbors belonging to the fraud class. Therefore, the possible scores are discrete values such as `0.0`, `0.2`, `0.4`, `0.6`, `0.8`, and `1.0`.
+
+### Prediction Pipeline Test
+
+The final prediction pipeline was tested using transactions from the original dataset.
+
+A known legitimate transaction produced:
+
+```text
+prediction: 0
+fraud_probability: 0.0
+is_fraud: False
+```
+
+A known fraudulent transaction produced:
+
+```text
+prediction: 1
+fraud_probability: 1.0
+is_fraud: True
+```
+
+These tests verified that the saved model and scaler can be loaded successfully and that new transactions pass through the same preprocessing and prediction pipeline before the final classification threshold is applied.
 
 ````
